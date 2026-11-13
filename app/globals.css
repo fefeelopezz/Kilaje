@@ -35,29 +35,29 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Paleta carbón y lima sobre los tokens de shadcn. La app es solo oscura:
+/* Negro puro, texto blanco y superficies de vidrio. La app es solo oscura:
    <html> lleva la clase "dark" para que apliquen las variantes dark: de los componentes. */
 :root {
   color-scheme: dark;
-  --background: #0e0f11;
-  --foreground: #f2f3f5;
-  --card: #1a1c20;
-  --card-foreground: #f2f3f5;
-  --popover: #1a1c20;
-  --popover-foreground: #f2f3f5;
-  --primary: #c6f432; /* lima: acción principal y datos destacados */
-  --primary-foreground: #0e0f11;
-  --secondary: #24272c;
-  --secondary-foreground: #f2f3f5;
-  --muted: #24272c;
-  --muted-foreground: #8a8f98;
-  --accent: #24272c;
-  --accent-foreground: #f2f3f5;
-  --destructive: #f87171;
-  --border: rgb(138 143 152 / 22%);
-  --input: rgb(138 143 152 / 35%);
-  --ring: #c6f432;
-  --radius: 0.625rem;
+  --background: #000000;
+  --foreground: #fafafa;
+  --card: rgb(255 255 255 / 3%); /* translúcida: deja ver el brillo del fondo */
+  --card-foreground: #fafafa;
+  --popover: #0a0a0a;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa; /* botón principal blanco con texto negro */
+  --primary-foreground: #000000;
+  --secondary: rgb(255 255 255 / 6%);
+  --secondary-foreground: #fafafa;
+  --muted: rgb(255 255 255 / 6%);
+  --muted-foreground: #a1a1a1;
+  --accent: rgb(255 255 255 / 8%);
+  --accent-foreground: #fafafa;
+  --destructive: #ff6166;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 12%);
+  --ring: rgb(255 255 255 / 40%);
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -66,6 +66,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Brillo tenue arriba sobre negro: es lo que hace notar el vidrio de botones y tarjetas. */
+    background-image:
+      radial-gradient(ellipse 80% 45% at 50% -10%, rgb(255 255 255 / 0.12), transparent 70%),
+      radial-gradient(ellipse 50% 30% at 85% 0%, rgb(120 140 255 / 0.08), transparent 70%);
+    background-attachment: fixed;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled) {

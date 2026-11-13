@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -28,25 +28,93 @@ const refresh = () => revalidatePath("/", "layout");
 
 // --- Login ---
 
-async function enter(fd: FormData, isNew: boolean) {
-  const email = String(fd.get("email") ?? "").trim();
-  const password = String(fd.get("password") ?? "");
+// El mail al que se le mandó el código viaja en una cookie, no en la URL.
+const EMAIL_COOKIE = "kilaje_email";
+
+function emailOf(fd: FormData, onError: string) {
+  const email = String(fd.get("email") ?? "").trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect(onError);
+  return email;
+}
+
+async function sendCode(email: string) {
+  // No reenvía si ya se mandó un código a ese mail en el último minuto.
+  // shortcut: límite solo por mail; sumar límite por IP si aparece abuso.
+  const recent = await db.verification.findFirst({
+    where: {
+      identifier: `sign-in-otp-${email}`,
+      createdAt: { gt: new Date(Date.now() - 60_000) },
+    },
+  });
+  if (!recent) await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" } });
+  (await cookies()).set(EMAIL_COOKIE, email, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 15 * 60,
+    path: "/login",
+  });
+}
+
+export async function requestCode(fd: FormData) {
+  const email = emailOf(fd, "/login?error=mail");
+  if (!(await db.user.findUnique({ where: { email } }))) redirect("/registro?error=sin-cuenta");
   try {
-    if (isNew)
-      await auth.api.signUpEmail({ body: { email, password, name: email.split("@")[0] } });
-    else await auth.api.signInEmail({ body: { email, password } });
-  } catch {
-    redirect(`/login?error=${isNew ? "registro" : "ingreso"}`);
+    await sendCode(email);
+  } catch (e) {
+    console.error(e);
+    redirect("/login?error=envio");
   }
+  redirect("/login/codigo");
+}
+
+export async function register(fd: FormData) {
+  const email = emailOf(fd, "/registro?error=datos");
+  const name = String(fd.get("name") ?? "").trim().slice(0, 80);
+  const weight = Number(String(fd.get("weight") ?? "").replace(",", "."));
+  if (!name || !(weight >= 20 && weight <= 400)) redirect("/registro?error=datos");
+
+  const existing = await db.user.findUnique({ where: { email } });
+  if (existing?.emailVerified) redirect("/login?error=ya-registrado");
+  // Si el mail quedó a medio registrar (nunca puso el código), se pisan sus datos.
+  await db.user.upsert({
+    where: { email },
+    update: { name, weight },
+    create: { id: crypto.randomUUID(), email, name, weight },
+  });
+  try {
+    await sendCode(email);
+  } catch (e) {
+    console.error(e);
+    redirect("/registro?error=envio");
+  }
+  redirect("/login/codigo");
+}
+
+export async function resendCode() {
+  const email = (await cookies()).get(EMAIL_COOKIE)?.value;
+  if (!email) redirect("/login");
+  try {
+    await sendCode(email);
+  } catch (e) {
+    console.error(e);
+    redirect("/login?error=envio");
+  }
+  redirect("/login/codigo?aviso=reenviado");
+}
+
+export async function verifyCode(fd: FormData) {
+  const jar = await cookies();
+  const email = jar.get(EMAIL_COOKIE)?.value;
+  if (!email) redirect("/login");
+  const otp = String(fd.get("otp") ?? "").replace(/\D/g, "");
+  try {
+    await auth.api.signInEmailOTP({ body: { email, otp } });
+  } catch {
+    redirect("/login/codigo?error=codigo");
+  }
+  jar.delete({ name: EMAIL_COOKIE, path: "/login" });
   redirect("/");
-}
-
-export async function signIn(fd: FormData) {
-  await enter(fd, false);
-}
-
-export async function signUp(fd: FormData) {
-  await enter(fd, true);
 }
 
 export async function signOut() {

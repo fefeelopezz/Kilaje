@@ -76,6 +76,7 @@ model User {
   email         String    @unique
   emailVerified Boolean   @default(false)
   image         String?
+  weight        Float? // peso corporal en kg, cargado al registrarse
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]

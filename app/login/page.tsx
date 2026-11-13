@@ -1,13 +1,14 @@
-import { signIn, signUp } from "@/app/actions";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { requestCode } from "@/app/actions";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const ERRORS: Record<string, string> = {
-  ingreso: "Email o contraseña incorrectos.",
-  registro:
-    "No se pudo crear la cuenta. Revisá que el email no esté ya registrado y que la contraseña tenga al menos 8 caracteres.",
+  mail: "Revisá el mail: no parece válido.",
+  envio: "No pudimos enviarte el código. Probá de nuevo en un minuto.",
+  "ya-registrado": "Ese mail ya tiene cuenta. Pedí tu código para entrar.",
 };
 
 // Depende de la sesión y de la URL: se permite que la navegación espere al servidor.
@@ -26,34 +27,25 @@ export default async function Login({ searchParams }: PageProps<"/login">) {
 
       <Card className="mt-6">
         <CardContent>
-          <form className="flex flex-col gap-4">
+          <form action={requestCode} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" className="h-10" type="email" name="email" autoComplete="email" required />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                className="h-10"
-                type="password"
-                name="password"
-                autoComplete="current-password"
-                minLength={8}
-                required
-              />
+              <p className="text-sm text-muted-foreground">
+                Te mandamos un código de 6 dígitos para entrar. Sin contraseña.
+              </p>
             </div>
             {message && (
               <p role="alert" className="text-sm text-destructive">
                 {message}
               </p>
             )}
-            <Button type="submit" size="lg" className="h-10" formAction={signIn}>
-              Ingresar
+            <Button type="submit" size="lg" className="h-10">
+              Enviarme el código
             </Button>
-            <Button type="submit" size="lg" className="h-10" variant="outline" formAction={signUp}>
+            <Link href="/registro" className={buttonVariants({ variant: "outline", size: "lg", className: "h-10" })}>
               Crear cuenta
-            </Button>
+            </Link>
           </form>
         </CardContent>
       </Card>
