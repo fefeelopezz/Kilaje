@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Kilaje ---
+
+model Routine {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  days      Day[]
+
+  @@index([userId])
+}
+
+model Day {
+  id        String   @id @default(cuid())
+  routineId String
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  blocks    Block[]
+
+  @@index([routineId])
+}
+
+// Bloque muscular: nombre libre ("Pecho", "Tren superior").
+model Block {
+  id        String          @id @default(cuid())
+  dayId     String
+  day       Day             @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime        @default(now())
+  exercises BlockExercise[]
+
+  @@index([dayId])
+}
+
+model BlockExercise {
+  id        String   @id @default(cuid())
+  blockId   String
+  block     Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  name      String
+  sets      Int
+  reps      Int
+  createdAt DateTime @default(now())
+  logs      SetLog[]
+
+  @@index([blockId])
+}
+
+model SetLog {
+  id         String        @id @default(cuid())
+  exerciseId String
+  exercise   BlockExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  date       DateTime      @db.Date
+  setNumber  Int
+  weight     Float
+  reps       Int
+
+  @@unique([exerciseId, date, setNumber])
+}
+
+// --- Better Auth (login) ---
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  routines      Routine[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}

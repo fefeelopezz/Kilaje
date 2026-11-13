@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kilaje",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "kilaje-local-db",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set DATABASE_URL=postgres://postgres:postgres@localhost:51214/template1?sslmode=disable&& set BETTER_AUTH_URL=http://localhost:3100&& npx next start -p 3100"
+      ],
+      "port": 3100
+    }
+  ]
+}
