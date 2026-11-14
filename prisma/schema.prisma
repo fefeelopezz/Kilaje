@@ -10,14 +10,30 @@ datasource db {
 // --- Kilaje ---
 
 model Routine {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
   days      Day[]
+  exercises Exercise[]
 
   @@index([userId])
+}
+
+// Ejercicios de la rutina. Se cargan primero y después se eligen para armar los bloques.
+model Exercise {
+  id        String          @id @default(cuid())
+  routineId String
+  routine   Routine         @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  name      String
+  sets      Int
+  reps      Int
+  createdAt DateTime        @default(now())
+  blocks    BlockExercise[]
+  logs      SetLog[]
+
+  @@unique([routineId, name])
 }
 
 model Day {
@@ -27,6 +43,7 @@ model Day {
   name      String
   createdAt DateTime @default(now())
   blocks    Block[]
+  logs      SetLog[]
 
   @@index([routineId])
 }
@@ -43,29 +60,34 @@ model Block {
   @@index([dayId])
 }
 
+// Ejercicio elegido para un bloque.
 model BlockExercise {
-  id        String   @id @default(cuid())
-  blockId   String
-  block     Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
-  name      String
-  sets      Int
-  reps      Int
-  createdAt DateTime @default(now())
-  logs      SetLog[]
+  id         String   @id @default(cuid())
+  blockId    String
+  block      Block    @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 
+  @@unique([blockId, exerciseId])
   @@index([blockId])
+  @@index([exerciseId])
 }
 
 model SetLog {
-  id         String        @id @default(cuid())
+  id         String   @id @default(cuid())
   exerciseId String
-  exercise   BlockExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  date       DateTime      @db.Date
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  dayId      String? // día de la rutina en que se hizo; queda vacío si se borra el día
+  day        Day?     @relation(fields: [dayId], references: [id], onDelete: SetNull)
+  date       DateTime @db.Date
   setNumber  Int
   weight     Float
   reps       Int
+  warmup     Boolean  @default(false) // serie de aproximación: no cuenta para récords ni volumen
 
   @@unique([exerciseId, date, setNumber])
+  @@index([dayId])
 }
 
 // --- Better Auth (login) ---

@@ -1,4 +1,4 @@
-export type SetInput = { setNumber: number; weight: number; reps: number };
+export type SetInput = { setNumber: number; weight: number; reps: number; warmup: boolean };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -9,7 +9,7 @@ export function parseDate(value: unknown): Date {
   return d;
 }
 
-// Lee los campos peso-N / reps-N del formulario. Una serie sin peso se ignora.
+// Lee los campos peso-N / reps-N / aprox-N del formulario. Una serie sin peso se ignora.
 export function parseSets(get: (key: string) => unknown, count: number): SetInput[] {
   const out: SetInput[] = [];
   for (let n = 1; n <= count; n++) {
@@ -20,7 +20,7 @@ export function parseSets(get: (key: string) => unknown, count: number): SetInpu
     if (!(weight >= 0 && weight <= 2000)) throw new Error(`Peso inválido en la serie ${n}`);
     if (!(Number.isInteger(reps) && reps >= 1 && reps <= 1000))
       throw new Error(`Repeticiones inválidas en la serie ${n}`);
-    out.push({ setNumber: n, weight, reps });
+    out.push({ setNumber: n, weight, reps, warmup: get(`aprox-${n}`) != null });
   }
   return out;
 }

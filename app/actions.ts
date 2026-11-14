@@ -22,7 +22,7 @@ function int(fd: FormData, key: string, min: number, max: number) {
 // Filtros de pertenencia: toda escritura pasa por uno de estos.
 const ownDay = (userId: string) => ({ routine: { userId } });
 const ownBlock = (userId: string) => ({ day: ownDay(userId) });
-const ownExercise = (userId: string) => ({ block: ownBlock(userId) });
+const ownExercise = (userId: string) => ({ routine: { userId } });
 
 const refresh = () => revalidatePath("/", "layout");
 
@@ -147,7 +147,7 @@ export async function createRoutine(fd: FormData) {
 export async function deleteRoutine(id: string) {
   const user = await requireUser();
   await db.routine.delete({ where: { id, userId: user.id } });
-  redirect("/");
+  redirect("/rutinas");
 }
 
 export async function createDay(routineId: string, fd: FormData) {
@@ -165,12 +165,43 @@ export async function deleteDay(id: string) {
   refresh();
 }
 
+// Ejercicios elegidos en el formulario (checkbox o select "ej") que son de la rutina del día.
+async function chosenExercises(fd: FormData, routineId: string) {
+  const ids = fd.getAll("ej").map(String).slice(0, 50);
+  const found = await db.exercise.findMany({ where: { id: { in: ids }, routineId }, select: { id: true } });
+  return found.map((e) => ({ exerciseId: e.id }));
+}
+
 export async function createBlock(dayId: string, fd: FormData) {
   const user = await requireUser();
-  await db.day.update({
-    where: { id: dayId, ...ownDay(user.id) },
-    data: { blocks: { create: { name: text(fd, "name") } } },
+  const day = await db.day.findFirstOrThrow({ where: { id: dayId, ...ownDay(user.id) } });
+  await db.block.create({
+    data: {
+      dayId,
+      name: text(fd, "name"),
+      exercises: { create: await chosenExercises(fd, day.routineId) },
+    },
   });
+  refresh();
+}
+
+export async function addToBlock(blockId: string, fd: FormData) {
+  const user = await requireUser();
+  const block = await db.block.findFirstOrThrow({
+    where: { id: blockId, ...ownBlock(user.id) },
+    include: { day: { select: { routineId: true } } },
+  });
+  const chosen = await chosenExercises(fd, block.day.routineId);
+  await db.blockExercise.createMany({
+    data: chosen.map((c) => ({ ...c, blockId })),
+    skipDuplicates: true,
+  });
+  refresh();
+}
+
+export async function removeFromBlock(id: string) {
+  const user = await requireUser();
+  await db.blockExercise.delete({ where: { id, block: ownBlock(user.id) } });
   refresh();
 }
 
@@ -180,42 +211,40 @@ export async function deleteBlock(id: string) {
   refresh();
 }
 
-export async function createExercise(blockId: string, fd: FormData) {
+export async function createExercise(routineId: string, fd: FormData) {
   const user = await requireUser();
-  await db.block.update({
-    where: { id: blockId, ...ownBlock(user.id) },
-    data: {
-      exercises: {
-        create: {
-          name: text(fd, "name"),
-          sets: int(fd, "sets", 1, 20),
-          reps: int(fd, "reps", 1, 100),
-        },
-      },
-    },
+  const data = { name: text(fd, "name"), sets: int(fd, "sets", 1, 20), reps: int(fd, "reps", 1, 100) };
+  const routine = await db.routine.findFirstOrThrow({ where: { id: routineId, userId: user.id } });
+  const repeated = await db.exercise.findUnique({
+    where: { routineId_name: { routineId: routine.id, name: data.name } },
   });
+  if (repeated) redirect(`/rutinas/${routineId}?error=repetido`);
+  await db.exercise.create({ data: { ...data, routineId: routine.id } });
   refresh();
+  redirect(`/rutinas/${routineId}`);
 }
 
 export async function deleteExercise(id: string) {
   const user = await requireUser();
-  await db.blockExercise.delete({ where: { id, ...ownExercise(user.id) } });
+  await db.exercise.delete({ where: { id, ...ownExercise(user.id) } });
   refresh();
 }
 
 // --- Series ---
 
 // Reemplaza las series de ese ejercicio en esa fecha por las del formulario.
-export async function saveSets(exerciseId: string, fd: FormData) {
+export async function saveSets(exerciseId: string, dayId: string, fd: FormData) {
   const user = await requireUser();
   const date = parseDate(fd.get("date"));
-  const exercise = await db.blockExercise.findFirstOrThrow({
+  const exercise = await db.exercise.findFirstOrThrow({
     where: { id: exerciseId, ...ownExercise(user.id) },
   });
+  // El día tiene que ser de la misma rutina que el ejercicio.
+  await db.day.findFirstOrThrow({ where: { id: dayId, routineId: exercise.routineId } });
   const sets = parseSets((key) => fd.get(key), exercise.sets);
   await db.$transaction([
     db.setLog.deleteMany({ where: { exerciseId, date } }),
-    db.setLog.createMany({ data: sets.map((s) => ({ ...s, exerciseId, date })) }),
+    db.setLog.createMany({ data: sets.map((s) => ({ ...s, exerciseId, dayId, date })) }),
   ]);
   refresh();
 }

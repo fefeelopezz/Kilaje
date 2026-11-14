@@ -4,11 +4,14 @@ import { latestPerExercise, parseDate, parseSets } from "./sets.ts";
 
 const form = (o: Record<string, string>) => (k: string) => o[k];
 
-test("parseSets ignora series sin peso y acepta coma decimal", () => {
-  const sets = parseSets(form({ "peso-1": "80", "reps-1": "8", "peso-2": "", "reps-2": "8", "peso-3": "82,5", "reps-3": "6" }), 3);
+test("parseSets ignora series sin peso, acepta coma decimal y marca aproximación", () => {
+  const sets = parseSets(
+    form({ "peso-1": "40", "reps-1": "12", "aprox-1": "on", "peso-2": "", "reps-2": "8", "peso-3": "82,5", "reps-3": "6" }),
+    3,
+  );
   assert.deepEqual(sets, [
-    { setNumber: 1, weight: 80, reps: 8 },
-    { setNumber: 3, weight: 82.5, reps: 6 },
+    { setNumber: 1, weight: 40, reps: 12, warmup: true },
+    { setNumber: 3, weight: 82.5, reps: 6, warmup: false },
   ]);
 });
 

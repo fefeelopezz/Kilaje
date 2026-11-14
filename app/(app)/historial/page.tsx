@@ -13,24 +13,42 @@ export default async function HistoryPage() {
   const user = await requireUser();
   // shortcut: muestra las últimas 2000 series; paginar si el historial crece mucho.
   const logs = await db.setLog.findMany({
-    where: { exercise: { block: { day: { routine: { userId: user.id } } } } },
+    where: { exercise: { routine: { userId: user.id } } },
     orderBy: [{ date: "desc" }, { setNumber: "asc" }],
     take: 2000,
-    include: { exercise: { select: { name: true, block: { select: { day: { select: { id: true, name: true } } } } } } },
+    include: { exercise: { select: { name: true } }, day: { select: { id: true, name: true } } },
   });
 
-  // Una entrada por fecha y día de rutina, con el peso máximo de cada ejercicio hecho.
+  // Una entrada por fecha y día de rutina. Series, volumen y peso máximo cuentan solo las efectivas.
   const sessions = new Map<
     string,
-    { date: Date; dayId: string; day: string; sets: number; volume: number; exercises: Map<string, number> }
+    {
+      date: Date;
+      dayId: string | null;
+      day: string;
+      sets: number;
+      warmups: number;
+      volume: number;
+      exercises: Map<string, number>;
+    }
   >();
   for (const l of logs) {
-    const day = l.exercise.block.day;
-    const key = `${l.date.toISOString()}|${day.id}`;
-    const s = sessions.get(key) ?? { date: l.date, dayId: day.id, day: day.name, sets: 0, volume: 0, exercises: new Map() };
-    s.sets++;
-    s.volume += l.weight * l.reps;
-    s.exercises.set(l.exercise.name, Math.max(s.exercises.get(l.exercise.name) ?? 0, l.weight));
+    const key = `${l.date.toISOString()}|${l.dayId}`;
+    const s = sessions.get(key) ?? {
+      date: l.date,
+      dayId: l.dayId,
+      day: l.day?.name ?? "Día borrado",
+      sets: 0,
+      warmups: 0,
+      volume: 0,
+      exercises: new Map(),
+    };
+    if (l.warmup) s.warmups++;
+    else {
+      s.sets++;
+      s.volume += l.weight * l.reps;
+      s.exercises.set(l.exercise.name, Math.max(s.exercises.get(l.exercise.name) ?? 0, l.weight));
+    }
     sessions.set(key, s);
   }
 
@@ -52,11 +70,18 @@ export default async function HistoryPage() {
                 <Card size="sm">
                   <CardContent className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <Link href={`/dias/${s.dayId}?fecha=${fecha}`} className="font-medium first-letter:uppercase hover:underline">
-                        {longDate(s.date)} · {s.day}
-                      </Link>
+                      {s.dayId ? (
+                        <Link href={`/dias/${s.dayId}?fecha=${fecha}`} className="font-medium first-letter:uppercase hover:underline">
+                          {longDate(s.date)} · {s.day}
+                        </Link>
+                      ) : (
+                        <span className="font-medium first-letter:uppercase">
+                          {longDate(s.date)} · {s.day}
+                        </span>
+                      )}
                       <span className="text-xs tabular-nums text-muted-foreground">
-                        {s.sets} {s.sets === 1 ? "serie" : "series"} ·{Math.round(s.volume).toLocaleString("es-AR")} kg de volumen
+                        {s.sets} {s.sets === 1 ? "serie" : "series"}
+                        {s.warmups > 0 && ` + ${s.warmups} de aprox.`} · {Math.round(s.volume).toLocaleString("es-AR")} kg de volumen
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">

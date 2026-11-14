@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { saveSets } from "@/app/actions";
-import { backLink, shortDate } from "@/app/ui";
+import { backLink, shortDate, ToggleChip } from "@/app/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,11 +29,13 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
 
   const day = await db.day.findFirst({
     where: { id, routine: { userId: user.id } },
-    include: { blocks: { ...byCreation, include: { exercises: byCreation } } },
+    include: {
+      blocks: { ...byCreation, include: { exercises: { ...byCreation, include: { exercise: true } } } },
+    },
   });
   if (!day) notFound();
 
-  const ids = day.blocks.flatMap((b) => b.exercises.map((e) => e.id));
+  const ids = day.blocks.flatMap((b) => b.exercises.map((be) => be.exerciseId));
   const [current, previous] = await Promise.all([
     db.setLog.findMany({ where: { exerciseId: { in: ids }, date } }),
     // shortcut: mira solo las 500 series anteriores más recientes del día;
@@ -63,11 +65,11 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
       {day.blocks.map((block) => (
         <section key={block.id} className="mt-6">
           <h2 className="font-medium text-primary">{block.name}</h2>
-          {block.exercises.map((ex) => {
+          {block.exercises.map(({ id: entryId, exercise: ex }) => {
             const mine = current.filter((l) => l.exerciseId === ex.id);
             const prev = last.get(ex.id);
             return (
-              <Card key={`${ex.id}-${fecha}`} className="mt-3">
+              <Card key={`${entryId}-${fecha}`} className="mt-3">
                 <CardHeader>
                   <CardTitle>
                     <Link href={`/ejercicios/${ex.id}`} className="hover:text-primary">
@@ -79,12 +81,12 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                   </CardAction>
                 </CardHeader>
                 <CardContent>
-                  <form action={saveSets.bind(null, ex.id)} className="flex flex-col gap-2">
+                  <form action={saveSets.bind(null, ex.id, day.id)} className="flex flex-col gap-2">
                     <input type="hidden" name="date" value={fecha} />
                     {prev && (
                       <p className="text-sm text-muted-foreground">
                         Última vez ({shortDate(prev[0].date)}):{" "}
-                        {prev.map((l) => `${l.weight} kg × ${l.reps}`).join(" · ")}
+                        {prev.map((l) => `${l.weight} kg × ${l.reps}${l.warmup ? " (aprox.)" : ""}`).join(" · ")}
                       </p>
                     )}
                     {Array.from({ length: ex.sets }, (_, i) => {
@@ -92,7 +94,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                       const cur = mine.find((l) => l.setNumber === n);
                       const before = prev?.find((l) => l.setNumber === n);
                       return (
-                        <div key={n} className="flex items-center gap-2">
+                        <div key={n} className="flex flex-wrap items-center gap-2">
                           <span className="w-14 text-sm text-muted-foreground">Serie {n}</span>
                           <Input
                             className="h-10 w-24"
@@ -114,9 +116,18 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                             aria-label={`Repeticiones, serie ${n} de ${ex.name}`}
                             required
                           />
+                          <ToggleChip
+                            name={`aprox-${n}`}
+                            label="Aprox."
+                            defaultChecked={cur?.warmup ?? before?.warmup}
+                            ariaLabel={`Serie ${n} de ${ex.name} es de aproximación`}
+                          />
                         </div>
                       );
                     })}
+                    <p className="text-xs text-muted-foreground">
+                      Marcá &quot;Aprox.&quot; en las series de aproximación: no cuentan para récords ni volumen.
+                    </p>
                     <div className="mt-1 flex items-center gap-3">
                       <Button type="submit" size="lg" className="h-10 px-4">
                         Guardar

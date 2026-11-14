@@ -12,31 +12,30 @@ export const instant = false;
 export default async function ExercisePage({ params }: PageProps<"/ejercicios/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const ex = await db.blockExercise.findFirst({
-    where: { id, block: { day: { routine: { userId: user.id } } } },
-    include: {
-      block: { select: { dayId: true } },
-      logs: { orderBy: [{ date: "asc" }, { setNumber: "asc" }] },
-    },
+  const ex = await db.exercise.findFirst({
+    where: { id, routine: { userId: user.id } },
+    include: { logs: { orderBy: [{ date: "asc" }, { setNumber: "asc" }] } },
   });
   if (!ex) notFound();
 
-  // Una fila por fecha: peso máximo del día y el detalle de las series.
+  // Una fila por fecha: peso máximo de las series efectivas y el detalle de todas.
   const sessions = new Map<string, { fecha: string; peso: number; detalle: string[] }>();
   for (const log of ex.logs) {
     const fecha = shortDate(log.date);
     const s = sessions.get(fecha) ?? { fecha, peso: 0, detalle: [] };
-    s.peso = Math.max(s.peso, log.weight);
-    s.detalle.push(`${log.weight} × ${log.reps}`);
+    if (!log.warmup) s.peso = Math.max(s.peso, log.weight);
+    s.detalle.push(`${log.weight} × ${log.reps}${log.warmup ? " (aprox.)" : ""}`);
     sessions.set(fecha, s);
   }
+  // Fechas con solo aproximaciones no aportan un punto al gráfico.
   const rows = [...sessions.values()];
+  const chart = rows.filter((r) => r.peso > 0).map(({ fecha, peso }) => ({ fecha, peso }));
   const best = Math.max(0, ...rows.map((r) => r.peso));
 
   return (
     <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
-      <Link href={`/dias/${ex.block.dayId}`} className={backLink}>
-        ← Entrenamiento
+      <Link href={`/rutinas/${ex.routineId}`} className={backLink}>
+        ← Rutina
       </Link>
       <h1 className="mt-2 text-2xl font-semibold">{ex.name}</h1>
 
@@ -54,7 +53,7 @@ export default async function ExercisePage({ params }: PageProps<"/ejercicios/[i
               <CardDescription>Peso máximo por entrenamiento</CardDescription>
             </CardHeader>
             <CardContent>
-              <Chart data={rows.map(({ fecha, peso }) => ({ fecha, peso }))} />
+              <Chart data={chart} />
             </CardContent>
           </Card>
           <table className="mt-4 w-full text-sm">

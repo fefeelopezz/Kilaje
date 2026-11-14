@@ -21,10 +21,11 @@ export default async function Dashboard() {
   const [logs, routines] = await Promise.all([
     // shortcut: trae las últimas 5000 series; con más historial, pasar los totales a SQL.
     db.setLog.findMany({
-      where: { exercise: { block: { day: { routine: { userId: user.id } } } } },
+      // Las series de aproximación no cuentan para volumen ni récords.
+      where: { exercise: { routine: { userId: user.id } }, warmup: false },
       orderBy: { date: "desc" },
       take: 5000,
-      include: { exercise: { select: { name: true, block: { select: { day: { select: { name: true } } } } } } },
+      include: { exercise: { select: { name: true } }, day: { select: { name: true } } },
     }),
     db.routine.findMany({
       where: { userId: user.id },
@@ -37,7 +38,7 @@ export default async function Dashboard() {
   const names = new Map(logs.map((l) => [l.exerciseId, l.exercise.name]));
   const last = logs[0];
   const lastDays = last
-    ? [...new Set(logs.filter((l) => l.date.getTime() === last.date.getTime()).map((l) => l.exercise.block.day.name))]
+    ? [...new Set(logs.filter((l) => l.date.getTime() === last.date.getTime()).flatMap((l) => (l.day ? [l.day.name] : [])))]
     : [];
 
   const metrics = [

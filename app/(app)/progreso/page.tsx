@@ -9,12 +9,18 @@ export const instant = false;
 
 export default async function Progress() {
   const user = await requireUser();
-  const own = { exercise: { block: { day: { routine: { userId: user.id } } } } };
+  // Solo series efectivas: las de aproximación no cuentan para el mejor peso.
+  const own = { exercise: { routine: { userId: user.id } }, warmup: false };
   const [exercises, best, recent] = await Promise.all([
-    db.blockExercise.findMany({
-      where: { block: { day: { routine: { userId: user.id } } } },
+    db.exercise.findMany({
+      where: { routine: { userId: user.id } },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, block: { select: { name: true, day: { select: { name: true } } } } },
+      select: {
+        id: true,
+        name: true,
+        routine: { select: { name: true } },
+        blocks: { select: { block: { select: { day: { select: { name: true } } } } } },
+      },
     }),
     db.setLog.groupBy({
       by: ["exerciseId"],
@@ -54,7 +60,7 @@ export default async function Progress() {
                   <CardContent className="flex flex-col gap-1">
                     <span className="font-medium">{ex.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {ex.block.day.name} · {ex.block.name}
+                      {[ex.routine.name, ...new Set(ex.blocks.map((b) => b.block.day.name))].join(" · ")}
                     </span>
                     {st?._max.weight != null ? (
                       <div className="mt-2 flex items-end justify-between gap-2">

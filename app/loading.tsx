@@ -1,3 +1,6 @@
+import { CardsSkeleton } from "./(app)/skeletons";
+
+// Se ve al abrir una página directamente, mientras se lee la sesión (antes de que aparezca la barra lateral).
 export default function Loading() {
-  return <p className="p-4 text-sm text-muted-foreground">Cargando…</p>;
+  return <CardsSkeleton cards={2} lines={2} />;
 }
