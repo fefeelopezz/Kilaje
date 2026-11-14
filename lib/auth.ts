@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { db } from "./db";
 
 async function sendCode(email: string, otp: string) {
@@ -40,8 +41,9 @@ export const auth = betterAuth({
   ],
 });
 
-export async function requireUser() {
+// cache: el layout y la página la llaman en el mismo pedido; se consulta la sesión una sola vez.
+export const requireUser = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
   return session.user;
-}
+});

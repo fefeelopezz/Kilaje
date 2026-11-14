@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test lib/sets.test.ts",
+    "test": "node --test lib/sets.test.ts lib/stats.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

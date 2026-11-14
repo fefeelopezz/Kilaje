@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createRoutine, signOut } from "@/app/actions";
+import { createRoutine } from "@/app/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 // Depende de la sesión y de la URL: se permite que la navegación espere al servidor.
 export const instant = false;
 
-export default async function Home() {
+export default async function Routines() {
   const user = await requireUser();
   const routines = await db.routine.findMany({
     where: { userId: user.id },
@@ -18,17 +18,9 @@ export default async function Home() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
-          Kila<span className="text-primary">je</span>
-        </h1>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
-            Salir
-          </Button>
-        </form>
-      </header>
+    <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
+      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Rutinas</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Tus rutinas y sus días. Tocá un día para entrenar.</p>
 
       {routines.length === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">

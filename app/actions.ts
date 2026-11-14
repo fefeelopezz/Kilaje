@@ -68,11 +68,23 @@ export async function requestCode(fd: FormData) {
   redirect("/login/codigo");
 }
 
-export async function register(fd: FormData) {
-  const email = emailOf(fd, "/registro?error=datos");
+function profileOf(fd: FormData, onError: string) {
   const name = String(fd.get("name") ?? "").trim().slice(0, 80);
   const weight = Number(String(fd.get("weight") ?? "").replace(",", "."));
-  if (!name || !(weight >= 20 && weight <= 400)) redirect("/registro?error=datos");
+  if (!name || !(weight >= 20 && weight <= 400)) redirect(onError);
+  return { name, weight };
+}
+
+export async function updateProfile(fd: FormData) {
+  const user = await requireUser();
+  await db.user.update({ where: { id: user.id }, data: profileOf(fd, "/perfil?error=datos") });
+  refresh();
+  redirect("/perfil?aviso=guardado");
+}
+
+export async function register(fd: FormData) {
+  const email = emailOf(fd, "/registro?error=datos");
+  const { name, weight } = profileOf(fd, "/registro?error=datos");
 
   const existing = await db.user.findUnique({ where: { email } });
   if (existing?.emailVerified) redirect("/login?error=ya-registrado");

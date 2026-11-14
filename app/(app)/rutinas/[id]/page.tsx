@@ -36,7 +36,7 @@ export default async function RoutinePage({ params }: PageProps<"/rutinas/[id]">
   if (!routine) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 p-4">
+    <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
       <Link href="/" className={backLink}>
         ← Rutinas
       </Link>

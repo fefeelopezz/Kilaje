@@ -34,7 +34,7 @@ export default async function ExercisePage({ params }: PageProps<"/ejercicios/[i
   const best = Math.max(0, ...rows.map((r) => r.peso));
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 p-4">
+    <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
       <Link href={`/dias/${ex.block.dayId}`} className={backLink}>
         ← Entrenamiento
       </Link>

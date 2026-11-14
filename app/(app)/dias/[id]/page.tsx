@@ -47,7 +47,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
   const last = latestPerExercise(previous);
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 p-4">
+    <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
       <Link href={`/rutinas/${day.routineId}`} className={backLink}>
         ← Rutina
       </Link>
