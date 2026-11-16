@@ -19,8 +19,8 @@ export default async function Routines() {
 
   return (
     <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
-      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Rutinas</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Tus rutinas y sus días. Tocá un día para entrenar.</p>
+      <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Editar rutinas</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Armá y cambiá tus rutinas: ejercicios, días y bloques. Para anotar pesos, andá a Entrenar.</p>
 
       {routines.length === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">
@@ -35,7 +35,7 @@ export default async function Routines() {
             <CardAction>
               <Link
                 href={`/rutinas/${routine.id}`}
-                className={buttonVariants({ variant: "ghost", size: "sm" })}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Editar
               </Link>
@@ -43,13 +43,9 @@ export default async function Routines() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             {routine.days.map((day) => (
-              <Link
-                key={day.id}
-                href={`/dias/${day.id}`}
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-              >
+              <span key={day.id} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm">
                 {day.name}
-              </Link>
+              </span>
             ))}
             {routine.days.length === 0 && (
               <span className="text-sm text-muted-foreground">Todavía sin días.</span>

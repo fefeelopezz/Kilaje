@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { saveSets } from "@/app/actions";
+import { saveWorkout } from "@/app/actions";
 import { backLink, shortDate, ToggleChip } from "@/app/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ export const instant = false;
 export default async function DayPage({ params, searchParams }: PageProps<"/dias/[id]">) {
   const user = await requireUser();
   const { id } = await params;
-  const { fecha: asked } = await searchParams;
+  const { fecha: asked, aviso } = await searchParams;
 
   let date: Date;
   try {
@@ -47,11 +47,12 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
     }),
   ]);
   const last = latestPerExercise(previous);
+  const seen = new Set<string>();
 
   return (
     <main className="mx-auto w-full max-w-3xl p-4 md:p-8">
-      <Link href={`/rutinas/${day.routineId}`} className={backLink}>
-        ← Rutina
+      <Link href="/entrenar" className={backLink}>
+        ← Entrenar
       </Link>
       <h1 className="mt-2 text-2xl font-semibold">{day.name}</h1>
 
@@ -62,10 +63,27 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
         </Button>
       </form>
 
+      {aviso === "guardado" && (
+        <p role="status" className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
+          Entrenamiento guardado.
+        </p>
+      )}
+
+      {/* Un solo formulario: todas las series del día se guardan juntas. */}
+      <form action={saveWorkout.bind(null, day.id)}>
+        <input type="hidden" name="date" value={fecha} />
+        {ids.length > 0 && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Marcá &quot;Aprox.&quot; en las series de aproximación: no cuentan para récords ni volumen.
+          </p>
+        )}
       {day.blocks.map((block) => (
         <section key={block.id} className="mt-6">
           <h2 className="font-medium text-primary">{block.name}</h2>
           {block.exercises.map(({ id: entryId, exercise: ex }) => {
+            // Si el ejercicio ya apareció en otro bloque del día, se anota una sola vez.
+            if (seen.has(ex.id)) return null;
+            seen.add(ex.id);
             const mine = current.filter((l) => l.exerciseId === ex.id);
             const prev = last.get(ex.id);
             return (
@@ -81,8 +99,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                   </CardAction>
                 </CardHeader>
                 <CardContent>
-                  <form action={saveSets.bind(null, ex.id, day.id)} className="flex flex-col gap-2">
-                    <input type="hidden" name="date" value={fecha} />
+                  <div className="flex flex-col gap-2">
                     {prev && (
                       <p className="text-sm text-muted-foreground">
                         Última vez ({shortDate(prev[0].date)}):{" "}
@@ -98,7 +115,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                           <span className="w-14 text-sm text-muted-foreground">Serie {n}</span>
                           <Input
                             className="h-10 w-24"
-                            name={`peso-${n}`}
+                            name={`${ex.id}:peso-${n}`}
                             inputMode="decimal"
                             pattern="[0-9]+([.,][0-9]+)?"
                             placeholder={before ? String(before.weight) : "0"}
@@ -108,7 +125,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                           <span className="text-sm text-muted-foreground">kg ×</span>
                           <Input
                             className="h-10 w-20"
-                            name={`reps-${n}`}
+                            name={`${ex.id}:reps-${n}`}
                             type="number"
                             min={1}
                             max={1000}
@@ -117,7 +134,7 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                             required
                           />
                           <ToggleChip
-                            name={`aprox-${n}`}
+                            name={`${ex.id}:aprox-${n}`}
                             label="Aprox."
                             defaultChecked={cur?.warmup ?? before?.warmup}
                             ariaLabel={`Serie ${n} de ${ex.name} es de aproximación`}
@@ -125,26 +142,27 @@ export default async function DayPage({ params, searchParams }: PageProps<"/dias
                         </div>
                       );
                     })}
-                    <p className="text-xs text-muted-foreground">
-                      Marcá &quot;Aprox.&quot; en las series de aproximación: no cuentan para récords ni volumen.
-                    </p>
-                    <div className="mt-1 flex items-center gap-3">
-                      <Button type="submit" size="lg" className="h-10 px-4">
-                        Guardar
-                      </Button>
-                      {mine.length > 0 && (
-                        <span className="text-sm text-primary">
-                          {mine.length} de {ex.sets} series anotadas
-                        </span>
-                      )}
-                    </div>
-                  </form>
+                    {mine.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        {mine.length} de {ex.sets} series anotadas
+                      </span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </section>
       ))}
+        {ids.length > 0 && (
+          // Fijo abajo (sobre el menú del celular) para guardar sin volver a subir.
+          <div className="sticky bottom-20 z-10 mt-6 md:bottom-4">
+            <Button type="submit" size="lg" className="h-12 w-full text-base shadow-lg">
+              Guardar entrenamiento
+            </Button>
+          </div>
+        )}
+      </form>
 
       {ids.length === 0 && (
         <p className="mt-6 text-sm text-muted-foreground">

@@ -1,14 +1,15 @@
 "use client";
 
-import { ChartLine, Dumbbell, History, House, User } from "lucide-react";
+import { ChartLine, ClipboardPen, Dumbbell, History, House, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// `match`: prefijos de URL que también marcan la sección como activa.
+// `match`: prefijos de URL que también marcan la sección como activa. `short`: texto en el menú del celular.
 const ITEMS = [
   { href: "/", label: "Inicio", icon: House, match: [] },
-  { href: "/rutinas", label: "Rutinas", icon: Dumbbell, match: ["/rutinas", "/dias"] },
+  { href: "/entrenar", label: "Entrenar", icon: Dumbbell, match: ["/entrenar", "/dias"] },
+  { href: "/rutinas", label: "Editar rutinas", short: "Rutinas", icon: ClipboardPen, match: ["/rutinas"] },
   { href: "/progreso", label: "Progreso", icon: ChartLine, match: ["/progreso", "/ejercicios"] },
   { href: "/historial", label: "Historial", icon: History, match: ["/historial"] },
   { href: "/perfil", label: "Perfil", icon: User, match: ["/perfil"] },
@@ -21,7 +22,7 @@ export function Nav({ variant }: { variant: "side" | "bottom" }) {
 
   if (variant === "bottom")
     return (
-      <nav aria-label="Secciones" className="grid grid-cols-5">
+      <nav aria-label="Secciones" className="grid grid-cols-6">
         {ITEMS.map((i) => (
           <Link
             key={i.href}
@@ -33,7 +34,7 @@ export function Nav({ variant }: { variant: "side" | "bottom" }) {
             )}
           >
             <i.icon className="size-5" aria-hidden />
-            {i.label}
+            {"short" in i ? i.short : i.label}
           </Link>
         ))}
       </nav>

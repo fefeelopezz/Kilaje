@@ -232,19 +232,25 @@ export async function deleteExercise(id: string) {
 
 // --- Series ---
 
-// Reemplaza las series de ese ejercicio en esa fecha por las del formulario.
-export async function saveSets(exerciseId: string, dayId: string, fd: FormData) {
+// Guarda todas las series del día de una vez. Por cada ejercicio, reemplaza las series de esa fecha
+// por las del formulario (campos "<ejercicioId>:peso-N", ":reps-N", ":aprox-N").
+export async function saveWorkout(dayId: string, fd: FormData) {
   const user = await requireUser();
   const date = parseDate(fd.get("date"));
-  const exercise = await db.exercise.findFirstOrThrow({
-    where: { id: exerciseId, ...ownExercise(user.id) },
+  const day = await db.day.findFirstOrThrow({
+    where: { id: dayId, ...ownDay(user.id) },
+    include: { blocks: { include: { exercises: { include: { exercise: true } } } } },
   });
-  // El día tiene que ser de la misma rutina que el ejercicio.
-  await db.day.findFirstOrThrow({ where: { id: dayId, routineId: exercise.routineId } });
-  const sets = parseSets((key) => fd.get(key), exercise.sets);
-  await db.$transaction([
-    db.setLog.deleteMany({ where: { exerciseId, date } }),
-    db.setLog.createMany({ data: sets.map((s) => ({ ...s, exerciseId, dayId, date })) }),
-  ]);
+  // Los ejercicios salen del día guardado, no del formulario: no se puede escribir en ejercicios ajenos.
+  const exercises = new Map(day.blocks.flatMap((b) => b.exercises.map((be) => [be.exerciseId, be.exercise])));
+  const writes = [...exercises.values()].flatMap((ex) => {
+    const sets = parseSets((key) => fd.get(`${ex.id}:${key}`), ex.sets);
+    return [
+      db.setLog.deleteMany({ where: { exerciseId: ex.id, date } }),
+      db.setLog.createMany({ data: sets.map((s) => ({ ...s, exerciseId: ex.id, dayId, date })) }),
+    ];
+  });
+  await db.$transaction(writes);
   refresh();
+  redirect(`/dias/${dayId}?fecha=${date.toISOString().slice(0, 10)}&aviso=guardado`);
 }
